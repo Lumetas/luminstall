@@ -1,0 +1,89 @@
+#!/bin/bash
+echo "disk file: ";
+read disk;
+
+auto () {
+    echo "During the automatic installation, 1 partition with the \"ext4\" file system will be created on the specified disk. The system will be installed on this section. All previous data on the disk will be lost! Please enter \"y\" if you agree.";
+    read suc;
+    if [[ $suc == "y" ]]; then 
+    umount_disk
+    format
+    create_part full ext4
+    copy_data
+    install
+    fi
+}
+
+umount_disk () {
+    umount_target $disk;
+}
+
+umount_target () {
+    findmnt -n -o TARGET -r $1 | xargs -r umount;
+    umount $1 2> /dev/null;
+}
+
+help () {
+    echo -e " press \"auto\" to start auto installation\n or...\n\n Recommended procedure for performing functions for manual installation:\n umount_disk\n  format\n create_part <size|full> <fs, ex: ext4(Recommended)> <number(Optional)>\n copy_data <number partition (optional)>\n install\n\n optional:\n help\n show_disk\n";
+}
+
+show_disk () {
+    echo p | fdisk $disk;
+}
+
+format () {
+    dd if=/dev/zero of=$disk status=progress;
+    umount_disk;
+
+}
+
+create_part () {
+    size=$1; fs=$2; num=$3;
+    if [[ $size == "full" ]]; then size=""; fi
+    if [[ $num == "" ]]; then num="1"; fi
+    size=$(echo $size | xargs);
+    fs=$(echo $fs | xargs);
+    num=$(echo $num | xargs);
+    umount_target $disk$num;
+    umount_target $disk;
+    echo -e "o\nn\np\n$num\n\n$size\nw" | fdisk $disk 1> /dev/null;
+    umount_target $disk$num;
+    mkfs.$fs $disk$num;
+}
+
+copy_data () {
+    num=$1;
+    if [[ $num == "" ]]; then num="1"; fi
+    mkdir -p /mnt/luminstall;
+    mkdir -p /mnt/luminstallImg;
+    
+    mount /dev/sda$num /mnt/luminstall;
+    mount /dev/sr0 /mnt/luminstallImg;
+    
+    cp -R /mnt/luminstallImg/slax /mnt/luminstall;
+    
+    echo done;
+}
+
+install () {
+    pwd=$(pwd);
+    cd /mnt/luminstall/slax/boot;
+    ./bootinst.sh;
+    cd $pwd;
+    
+    umount /mnt/luminstall;
+    umount /mnt/luminstallImg;
+    
+    rmdir /mnt/luminstall;
+    rmdir /mnt/luminstallImg;
+    
+    exit;
+}
+
+if [[ $1 == "auto" ]]; then 
+    auto;
+fi
+
+help;
+while [[ 1 == 1 ]]; do read cmd; $cmd; done
+
