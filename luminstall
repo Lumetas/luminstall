@@ -32,7 +32,7 @@ show_disk () {
 }
 
 format () {
-    dd if=/dev/zero of=$disk status=progress;
+    dd if=/dev/zero of=$disk bs=100M status=progress;
     umount_disk;
 
 }
